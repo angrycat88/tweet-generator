@@ -7,7 +7,8 @@ import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 import { Slider } from './ui/slider';
 import TweetCard from './TweetCard';
-import { Tweet } from '../types';
+import { Tweet, ApiError } from '../types';
+import { tweetService } from '../api/tweetService';
 
 const TweetGenerator: React.FC = () => {
   const [originalText, setOriginalText] = useState("");
@@ -16,29 +17,43 @@ const TweetGenerator: React.FC = () => {
   const [generateThreads, setGenerateThreads] = useState(false);
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleGenerate = () => {
-    // Mock tweet generation for now
-    const mockTweets: Tweet[] = [];
-    const words = originalText.split(' ');
-    const wordsPerTweet = Math.ceil(words.length / tweetCount);
-    
-    for (let i = 0; i < tweetCount; i++) {
-      const startIndex = i * wordsPerTweet;
-      const endIndex = Math.min(startIndex + wordsPerTweet, words.length);
-      const tweetText = words.slice(startIndex, endIndex).join(' ');
-      
-      mockTweets.push({
-        id: `tweet-${i}`,
-        text: tweetText,
-        ...(generateThreads && {
-          threadIndex: i + 1,
-          totalInThread: tweetCount
-        })
+  const handleGenerate = async () => {
+    if (!originalText.trim()) return;
+
+    setIsLoading(true);
+    setError(null);
+    setTweets([]);
+
+    try {
+      const response = await tweetService.generateTweets({
+        text: originalText,
+        numTweets: tweetCount,
+        allowThreads: generateThreads,
+        guidance: aiGuidance.trim() || undefined,
       });
+
+      // Transform API response to our Tweet format
+      const transformedTweets: Tweet[] = response.tweets.map((tweet, index) => ({
+        id: `tweet-${Date.now()}-${index}`,
+        text: tweet.text,
+        charCount: tweet.charCount,
+        ...(generateThreads && {
+          threadIndex: index + 1,
+          totalInThread: response.tweets.length
+        })
+      }));
+
+      setTweets(transformedTweets);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate tweets';
+      setError(errorMessage);
+      console.error('Error generating tweets:', err);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setTweets(mockTweets);
   };
 
   const handleCopy = (tweet: Tweet) => {
@@ -127,15 +142,35 @@ const TweetGenerator: React.FC = () => {
             {/* Generate Button */}
             <Button
               onClick={handleGenerate}
-              disabled={!originalText.trim()}
+              disabled={!originalText.trim() || isLoading}
               size="lg"
               className="px-8"
             >
-              Generate Tweets
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Generating...
+                </>
+              ) : (
+                'Generate Tweets'
+              )}
             </Button>
           </div>
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <div className="flex items-center gap-2 text-destructive">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <span className="font-medium">Error:</span>
+          </div>
+          <p className="mt-1 text-sm text-destructive">{error}</p>
+        </div>
+      )}
 
       {/* Output Section */}
       {tweets.length > 0 && (

@@ -56,7 +56,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onCopy, isCopied }) => {
       {/* Footer */}
       <div className="border-t border-border pt-4 flex items-center justify-between">
         <span className="text-sm text-muted-foreground">
-          {tweet.text.length}/280
+          {tweet.charCount || tweet.text.length}/280
         </span>
         <Button
           variant="outline"
