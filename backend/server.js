@@ -240,7 +240,7 @@ app.post('/generate-tweets', validateInput, async (req, res) => {
 
     // Call OpenAI API
     const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: "gpt-3.5-turbo",
       messages: [
         {
           role: "system",
