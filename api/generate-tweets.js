@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+const OpenAI = require('openai');
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -197,7 +197,7 @@ function parseTweets(aiResponse, numTweets, allowThreads) {
   });
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -215,6 +215,9 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('Request received:', req.method, req.url);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('Environment check - API key exists:', !!process.env.OPENAI_API_KEY);
     // Validate input
     validateInput(req.body);
 
@@ -270,6 +273,13 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error generating tweets:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      status: error.status
+    });
     
     // Handle specific OpenAI errors
     if (error.code === 'insufficient_quota') {
@@ -298,7 +308,8 @@ export default async function handler(req, res) {
 
     // Generic error response
     res.status(500).json({
-      error: error.message || 'Failed to generate tweets. Please try again later.'
+      error: error.message || 'Failed to generate tweets. Please try again later.',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
